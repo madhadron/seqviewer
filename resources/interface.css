@@ -1,0 +1,116 @@
+@media screen {
+body {
+    padding: 0;
+    margin: 0;
+    background-color: #ccc;
+    font: "Palatino Linotype" "Book Antiqua" serif;
+}
+
+table#list-table {
+    margin: 0.3em;
+    line-height: 1.5em;
+    width: 100%;
+    
+}
+
+tr {
+    height: 1.5em;
+}
+
+th {
+    padding-left: 0.3em;
+}
+
+td {
+    border-left: 1px solid grey;
+    padding-left: 0.3em;
+}
+
+td:first-child {
+    border-left: none;
+}
+
+tr#header {
+    text-align: left;
+    font-weight: bold;
+    border-bottom: 1px solid grey;
+}
+
+div#content-pane {
+    min-width: 98%;
+    background-color: white;
+    white-space: nowrap;
+    position: absolute;
+    top: 1.5em;
+    bottom: 0;
+    left: 0.3em;
+    right: 0.3em;
+    margin-top: 0.3em;
+    overflow: scroll;
+}
+
+div#control-bar {
+    width: 100%;
+    height: 1.5em;
+    line-height: 1.5em;
+    background-color: black;
+    color: white;
+}
+
+div#list-pane {
+    width: 100%;
+    background-color: white;
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1.5em;
+    bottom: auto;
+}
+
+#control-bar {
+    display: table;
+    background-image: url('concrete_wall.png');
+}
+
+#control-bar ul {
+    display: block;
+    text-align: right;
+    position: relative;
+    border-bottom: 0.05em solid black;
+    border-top: 0.05em solid #ccc;
+}
+
+#control-bar ul li {
+    padding-left: 0.3em;
+    padding-right: 0.3em;
+    text-align: center;
+    display: inline-block;
+    cursor: pointer;
+    font-family: Optima, Myriad, sans-serif;
+}
+
+tr.entry {
+    cursor: pointer;
+}
+
+tr.entry:hover {
+    background-color: yellow;
+}
+}
+
+@media print {
+    body {
+        padding: 0;
+        margin: 0;
+        background-color: white;
+        color: black;
+    }
+
+    #list-pane {
+        display: none;
+    }
+    #content-pane {
+        white-space: wrap;
+    }
+}

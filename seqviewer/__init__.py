@@ -131,39 +131,19 @@ class ChromatogramTrack(object):
         assert right > self.centers[i]
         width = float(right-left)
         xml = """<div class="track-entry %d">
-                   <svg preserveAspectRatio="xMinYMax slice" viewbox="0 0 1 1" version="1.1">""" % i
+                   <svg preserveAspectRatio="none" viewbox="0 0 1 1" version="1.1">""" % i
         start = max(left-1, 0)
-        end = min(right+1, len(self.trace('A'))-1)
-        m = float(self.max_value)
+        end = min(right, len(self.trace('A'))-1)
+        m = numpy.sqrt(float(self.max_value))
         for b in 'ACTG':
             path = "M %f,%f " % (start, self.trace(b)[start]/m)
             for i in range(start, end):
-                Lx, Ly, Qx, Qy, Px, Py, Rx, Ry = \
-                    (i-left)/width, 1-self.trace(b)[i]/m, \
-                    self.Qx[i], self.Qy[b][i], \
-                    self.Px[i], self.Py[b][i], \
-                    (i+1-left)/width, 1-self.trace(b)[i+1]/m
-                path += "C %f,%f %f,%f %f,%f " % (Qx, Qy, Px, Py, Rx, Ry)
-                # xml += """<circle cx="%f" cy="%f" r="0.05" stroke-width="0.005"
-                # stroke="black" fill="none" />""" % (Lx, Ly)
-                # xml += """<circle cx="%f" cy="%f" r="0.05" stroke-width="0.005"
-                #                   stroke="black" fill="none" />""" % \
-                #     (Qx, Qy)
-                # xml += """<circle cx="%f" cy="%f" r="0.05" stroke-width="0.005"
-                #                   stroke="black" fill="none" />""" % \
-                #     (Px, Py)
-                # xml += """<line x1="%f" y1="%f" x2="%f" y2="%f" stroke-width="0.005"
-                #                 stroke="grey" fill="none" />""" % \
-                #     (Lx, Ly, Qx, Qy)
-                # xml += """<line x1="%f" y1="%f" x2="%f" y2="%f" stroke-width="0.005"
-                #                 stroke="green" fill="none" />""" % \
-                #     (Rx, Ry, Px, Py)
-                xml += """<line x1="%f" y1="%f" x2="%f" y2="%f" stroke-width="0.005"
+                Lx, Ly, Rx, Ry = \
+                    (i-left)/width, 1-numpy.sqrt(self.trace(b)[i])/m, \
+                    (i+1-left)/width, 1-numpy.sqrt(self.trace(b)[i+1])/m
+                xml += """<line x1="%f" y1="%f" x2="%f" y2="%f" stroke-width="0.01"
                               stroke="%s" fill="none" />""" % \
                     (Lx, Ly, Rx, Ry, base_coloring[b])
-            # xml += """<path stroke-width="0.01"
-            #                 fill="none" stroke="%s" d="%s" />""" % \
-            #     (base_coloring[b], path)
         xml += "</svg></div>"
         return xml
     def trace(self, base):
