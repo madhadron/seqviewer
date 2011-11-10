@@ -1,0 +1,40 @@
+* {
+    margin: 0;
+    padding: 0;
+}
+
+body {
+    overflow: scroll;
+    white-space: nowrap;
+}
+
+div.trackset {
+    display: table;
+}
+
+div.track {
+    display: table-row;
+}
+
+div.track-entry {
+    padding-left: 0.6em;
+    padding-right: 0.6em;
+    display: table-cell;
+}
+
+div.track div.track-entry:nth-of-type(odd) {
+    background-color: #eee;
+}
+
+div.chromatogram > div.track-entry {
+    height: 4em;
+    padding: 0 !important;
+}
+
+div.track-entry > div.svg-container {
+    width: 100%;
+    height: 100%;
+    font-size: 0;
+}
+
+

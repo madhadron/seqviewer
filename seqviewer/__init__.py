@@ -7,6 +7,12 @@ base_coloring = {'A': 'green', 'C': 'blue', 'T': 'red', 'G': 'black'}
 class SequenceTrack(object):
     def __init__(self, sequence):
         self.sequence = sequence
+    def render_row(self):
+        xml = """<div class="track sequence">"""
+        for i in range(len(self)):
+            xml += self.render(i)
+        xml += """</div>"""
+        return xml
     def render(self, i):
         base = self.sequence[i]
         return """<div class="track-entry %d" style="color: %s">%s</div>""" % \
@@ -22,9 +28,15 @@ class SequenceTrack(object):
 class IntegerTrack(object):
     def __init__(self, sequence):
         self.sequence = sequence
+    def render_row(self):
+        xml = """<div class="track integer">"""
+        for i in range(len(self)):
+            xml += self.render(i)
+        xml += """</div>"""
+        return xml
     def render(self, i):
         val = self.sequence[i]
-        return """<div class="track-entry %d">%d</span>""" % (i, val)
+        return """<div class="track-entry %d">%d</div>""" % (i, val)
     def __getitem__(self, i):
         return self.render(i)
     def __str__(self):
@@ -114,8 +126,6 @@ class ChromatogramTrack(object):
         self.boundaries[1:-1] = (self.centers[1:] + self.centers[:-1])/2.0
         self.boundaries[-1] = len(A)-1
 
-
-
         self.Qx = numpy.array([i+1/3.0 for i in range(len(A)-1)])
         self.Px = numpy.array([i+2/3.0 for i in range(len(A)-1)])
 
@@ -124,14 +134,21 @@ class ChromatogramTrack(object):
         self.Qy = dict([(b, ps_to_qs(self.Py[b], self.trace(b)))
                         for b in 'ACTG'])
 
+    def render_row(self):
+        xml = """<div class="track chromatogram">"""
+        for i in range(len(self)):
+            xml += self.render(i)
+        xml += """</div>"""
+        return xml
+
     def render(self, i):
         left = int(self.boundaries[i])
         right = int(self.boundaries[i+1])
         assert left < self.centers[i]
         assert right > self.centers[i]
         width = float(right-left)
-        xml = """<div class="track-entry %d">
-                   <svg preserveAspectRatio="none" viewbox="0 0 1 1" version="1.1">""" % i
+        xml = """<div class="track-entry %d"><div class="svg-container">
+                   <svg preserveAspectRatio="none" viewbox="0 -0.05 1 1.05" version="1.1">""" % i
         start = max(left-1, 0)
         end = min(right, len(self.trace('A'))-1)
         m = numpy.sqrt(float(self.max_value))
@@ -144,7 +161,7 @@ class ChromatogramTrack(object):
                 xml += """<line x1="%f" y1="%f" x2="%f" y2="%f" stroke-width="0.01"
                               stroke="%s" fill="none" />""" % \
                     (Lx, Ly, Rx, Ry, base_coloring[b])
-        xml += "</svg></div>"
+        xml += "</svg></div></div>"
         return xml
     def trace(self, base):
         if base == 'A':
@@ -161,6 +178,8 @@ class ChromatogramTrack(object):
         return self.render(i)
     def __str__(self):
         return "ChromatogramTrack"
+    def __len__(self):
+        return len(self.centers)
 
 @contextlib.contextmanager
 def liftW(x):
