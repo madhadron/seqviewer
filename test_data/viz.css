@@ -20,6 +20,7 @@ div.track-entry {
     padding-left: 0.6em;
     padding-right: 0.6em;
     display: table-cell;
+    text-align: center;
 }
 
 div.track div.track-entry:nth-of-type(odd) {
