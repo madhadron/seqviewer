@@ -3,13 +3,23 @@ import ab1
 import numpy
 import contextlib
 
-base_coloring = {'A': 'green', 'C': 'blue', 'T': 'red', 'G': 'black'}
+def base_color(base):
+    base_coloring = {'A': 'green', 'C': 'blue', 'T': 'red', 'G': 'black'}
+    try:
+        return base_coloring[base]
+    except KeyError:
+        return 'yellow'
+
 
 class SequenceTrack(object):
-    def __init__(self, sequence):
+    def __init__(self, sequence, name="(sequence)", offset=0):
         self.sequence = sequence
+        self.offset = 0
+        self.name = name
     def render_row(self, limit=None):
         xml = """<div class="track sequence">"""
+        for i in range(self.offset):
+            xml += """<div class="track-entry"></div>"""
         for i in range(limit==None and len(self) or limit):
             xml += self.render(i)
         xml += """</div>"""
@@ -17,7 +27,7 @@ class SequenceTrack(object):
     def render(self, i):
         base = self.sequence[i]
         return """<div class="track-entry %d" style="color: %s">%s</div>""" % \
-            (i, base_coloring[base], base)
+            (i, base_color(base), base)
     def __getitem__(self, i):
         return self.render(i)
     def __str__(self):
@@ -27,10 +37,14 @@ class SequenceTrack(object):
 
 
 class IntegerTrack(object):
-    def __init__(self, sequence):
+    def __init__(self, sequence, name="(integers)", offset=0):
         self.sequence = sequence
+        self.offset = offset
+        self.name = name
     def render_row(self, limit=None):
         xml = """<div class="track integer">"""
+        for i in range(self.offset):
+            xml += """<div class="track-entry"></div>"""
         for i in range(limit==None and len(self) or limit):
             xml += self.render(i)
         xml += """</div>"""
@@ -56,8 +70,18 @@ def close_enough(Lx,Ly, Rx,Ry, px,py):
     alpha = 0.005
     return abs(py - ((Ry-Ly)/float(Rx-Lx))*(px-Lx) - Ly) < alpha * (Ly + Ry)/2.0
 
+def cutoff(a, n_hinges=6.1):
+    m = numpy.median(numpy.log(a+1))
+    h = sorted(numpy.log(a+1))[int(0.75*len(a))]
+    d = h-m
+    c = numpy.exp(m + n_hinges*d) - 1
+    return c
+
+
 class ChromatogramTrack(object):
-    def __init__(self, A, C, T, G, centers):
+    def __init__(self, A, C, T, G, centers, name="(chromatogram)", offset=0):
+        self.name = name
+        self.offset = offset
         assert len(A) == len(C)
         assert len(A) == len(T)
         assert len(A) == len(G)
@@ -67,7 +91,8 @@ class ChromatogramTrack(object):
         self.C = numpy.array(C).astype(numpy.float)
         self.G = numpy.array(G).astype(numpy.float)
         self.T = numpy.array(T).astype(numpy.float)
-        self.max_value = float(max(numpy.max(self.trace(b)) for b in 'ACTG'))
+        all_traces = numpy.concatenate([self.A,self.C,self.T,self.G])
+        self.max_value = min(max(all_traces), cutoff(all_traces))
 
         self.centers = numpy.array(centers)
 
@@ -85,6 +110,8 @@ class ChromatogramTrack(object):
 
     def render_row(self, limit=None):
         xml = """<div class="track chromatogram">"""
+        for i in range(self.offset):
+            xml += """<div class="track-entry"></div>"""
         for i in range(limit==None and len(self) or limit):
             xml += self.render(i)
         xml += """</div>"""
@@ -100,13 +127,16 @@ class ChromatogramTrack(object):
                    <svg preserveAspectRatio="none" viewbox="0 -0.05 1 1.05" version="1.1">""" % i
         start = max(left-1, 0)
         end = min(right, len(self.trace('A'))-1)
-        m = numpy.sqrt(float(self.max_value))
+        m = self.max_value
         for b in 'ACTG':
+            path = "M%1.2f,%1.2f" % ((start-left)/width,
+                                     1-self.trace(b)[start]/m)
             i = start
             while i < end:
                 Lx, Ly, Rx, Ry = \
-                    (i-left)/width, 1-numpy.sqrt(self.trace(b)[i])/m, \
-                    (i+1-left)/width, 1-numpy.sqrt(self.trace(b)[i+1])/m
+                    (i-left)/width, 1-self.trace(b)[i]/m, \
+                    (i+1-left)/width, 1-self.trace(b)[i+1]/m
+
                 # This code sparsifies the lines in the SVG: any
                 # points that can be approximated adequately (as
                 # defined by the function close_enough) by just
@@ -116,9 +146,16 @@ class ChromatogramTrack(object):
                 # 5.1kb with this code in place.  The rendering time
                 # in Firefox goes from 9s to under 7s.
 
+                # It's also important that I generate a single path
+                # per trace instead of a bunch of separate line
+                # elements.  This drops the file size another factor
+                # of 5, and decreases the rendering time to trivial (~0.7s).
+
+                # Next, try to shrink the names a bit.
+
                 skipped = []
                 while i+1 < end:
-                    nextx, nexty = (i+2-left)/width, 1-numpy.sqrt(self.trace(b)[i+2])/m
+                    nextx, nexty = (i+2-left)/width, 1-self.trace(b)[i+2]/m
                     if all([close_enough(Lx,Ly,nextx,nexty,px,py)
                             for px,py in skipped + [(Rx,Ry)]]):
                         skipped += [(Rx,Ry)]
@@ -126,10 +163,10 @@ class ChromatogramTrack(object):
                         i += 1
                     else:
                         break
-                xml += """<line x1="%f" y1="%f" x2="%f" y2="%f" stroke-width="0.01"
-                              stroke="%s" fill="none" />""" % \
-                    (Lx, Ly, Rx, Ry, base_coloring[b])
+                path += """L%1.2f,%1.2f""" % (Rx, Ry)
                 i += 1
+            xml += """<path stroke-width="0.01" stroke="%s" fill="none" d="%s" />""" % \
+                (base_color(b), path)
         xml += "</svg></div></div>"
         return xml
     def trace(self, base):
@@ -160,13 +197,14 @@ def ab1_to_tracks(handle_or_filename):
             open(handle_or_filename, 'rb') or \
             liftW(handle_or_filename) as handle:
         a = ab1.Ab1File(handle)
-        bases = SequenceTrack(a.bases())
-        confidences = IntegerTrack(a.base_confidences())
+        bases = SequenceTrack(a.bases(), name='Bases')
+        confidences = IntegerTrack(a.base_confidences(), name='Confidence')
         chromatogram = ChromatogramTrack(A=a.trace('A'),
-                                        C=a.trace('C'),
-                                        T=a.trace('T'),
-                                        G=a.trace('G'),
-                                        centers=a.base_centers())
+                                         C=a.trace('C'),
+                                         T=a.trace('T'),
+                                         G=a.trace('G'),
+                                         centers=a.base_centers(),
+                                         name='Trace')
         return [bases,confidences,chromatogram]
 
 

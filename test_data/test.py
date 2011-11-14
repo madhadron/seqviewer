@@ -9,15 +9,11 @@ import numpy
 def test_render_chromatogram_track():
     print """<html><head>
              <link rel="STYLESHEET" href="viz.css">
-             <script src="jquery-1.7.js" type="text/javascript">
-             <script type="text/javascript">
-             $(document).ready(function() {
-                 $("div.track-entry:even").css("background-color", "#ccc");
-             });
-             </script>
              </head><body>"""
     bases, confs, chrom = seqviewer.ab1_to_tracks('visualization_data/tmpZRPl7_-1.ab1')
     print """<div class="trackset">"""
+    bases.offset = 5
+    confs.offset = 2
     print bases.render_row()
     print confs.render_row()
     print chrom.render_row()
