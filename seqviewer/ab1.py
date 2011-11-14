@@ -259,22 +259,6 @@ def read_sequence(direntry, handle):
     return values
 
 
-@contextlib.contextmanager
-def acquire(lock):
-    """Wrap acquiring and releasing a lock in a with block.
-
-    This should be used as::
-
-        with acquire(mylock):
-            ...do things needing the locked resources
-    """
-    lock.acquire()
-    try:
-        yield
-    finally:
-        lock.release()
-
-
 class SequenceWithConfidence(object):
     def __init__(self, sequence, confidences):
         assert len(sequence) == len(confidences)
@@ -368,7 +352,7 @@ class Ab1File(object):
             direntry = parse_direntry(self.handle)
             key = direntry['name']
             self.entries[key].append(direntry)
-        self.base_order = dict([(chr(x).upper(),i) 
+        self.base_order = dict([(chr(x).upper(),i)
                                 for i,x in enumerate(self['FWO_'][0])])
 
     def keys(self):
@@ -395,9 +379,12 @@ class Ab1File(object):
             if 'data' in direntry: # The data is <= 4 bytes long, and stored locally
                 data.append(direntry['data'])
             else: # The data must be fetched from disk
-                with acquire(self.lock):
+                try:
+                    self.lock.acquire()
                     self.handle.seek(direntry['dataoffset'])
                     data.append(read_sequence(direntry, self.handle))
+                finally:
+                    self.lock.release()
         return data
 
     def __iter__(self):
@@ -440,7 +427,7 @@ class Ab1File(object):
 def test_ab1file():
     with open('scrapings/tmpClCBJg-1.ab1', 'rb') as h:
         a = Ab1File(h)
-        assert len(a) == 122 
+        assert len(a) == 122
         assert a['Scan'] == [[13960]]
         assert a['CTTL'] == [['Comment:']]
         assert isinstance(a.bases(), str)
