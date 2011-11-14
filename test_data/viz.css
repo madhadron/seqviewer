@@ -3,9 +3,50 @@
     padding: 0;
 }
 
-body {
+.scrolling-container {
     overflow: scroll;
     white-space: nowrap;
+}
+
+.label-column {
+    float: left;
+    max-width: 10em;
+    overflow: hidden;
+    white-space: nowrap;
+    border-right: 0.2em solid black;
+}
+
+
+.label-column div {
+    display: block;
+    font-family: Optima, Myriad, sans-serif;
+    vertical-align: middle;
+    color: white;
+    border-top: 1px solid #eee;
+    background-image: url('concrete_wall.png');
+    padding-right: 0.1em;
+    padding-left: 0.2em;
+    padding-top: 0.2em;
+    padding-bottom: 0.2em;
+    height: 0.6em;
+    text-align: right;
+}
+
+.label-column div span {
+    font-size: 0.6em;
+}
+
+.label-column div:first-child {
+    border-top: none;
+}
+
+.chromatogram-label {
+    height: 3.6em !important;
+}
+
+.chromatogram-label span {
+    height: 6em !important;
+    line-height: 6em;
 }
 
 .trackset {

@@ -100,14 +100,6 @@ class ChromatogramTrack(object):
         self.boundaries[1:-1] = (self.centers[1:] + self.centers[:-1])/2.0
         self.boundaries[-1] = len(A)-1
 
-        # self.Qx = numpy.array([i+1/3.0 for i in range(len(A)-1)])
-        # self.Px = numpy.array([i+2/3.0 for i in range(len(A)-1)])
-
-        # self.Py = dict([(b, qs(self.trace(b)))
-        #                 for b in 'ACTG'])
-        # self.Qy = dict([(b, ps_to_qs(self.Py[b], self.trace(b)))
-        #                 for b in 'ACTG'])
-
     def render_row(self, limit=None):
         xml = """<div class="track chromatogram">"""
         for i in range(self.offset):
@@ -151,7 +143,8 @@ class ChromatogramTrack(object):
                 # elements.  This drops the file size another factor
                 # of 5, and decreases the rendering time to trivial (~0.7s).
 
-                # Next, try to shrink the names a bit.
+                # I also tried shortening all the div classes and
+                # names, but that gave a negligible improvement.
 
                 skipped = []
                 while i+1 < end:
@@ -187,6 +180,7 @@ class ChromatogramTrack(object):
     def __len__(self):
         return len(self.centers)
 
+
 @contextlib.contextmanager
 def liftW(x):
     yield x
@@ -207,6 +201,43 @@ def ab1_to_tracks(handle_or_filename):
                                          name='Trace')
         return [bases,confidences,chromatogram]
 
+
+class TrackSet(object):
+    def __init__(self, tracks=[]):
+        self.tracks = dict([(t.name, t) for t in tracks])
+        self.order = [t.name for t in self.tracks]
+    def add_track(self, track, name=None, position=None):
+        if name == None:
+            name = track.name
+        if name in self.tracks.keys():
+            raise ValueError("There is already a track named "
+                             "%s in this Trackset" % name)
+        self.tracks[name] = track
+        if position == None:
+            self.order.append(name)
+        else:
+            if position < len(self.order):
+                self.order.insert(position, name)
+            else:
+                raise ValueError(("Could not insert track %s at "
+                                  "position %d in a TrackSet with "
+                                  "%d rows.") % (name, position,
+                                                 len(self.order)))
+    def render(self):
+        xml = """<div class="trackset">"""
+        xml += """<div class="label-column">"""
+        for n in self.order:
+            if isinstance(self.tracks[n], ChromatogramTrack):
+                xml += """<div class="chromatogram-label"><span>%s</span></div>""" % n
+            else:
+                xml += """<div class="label"><span>%s</span></div>""" % n
+        xml += """</div>"""
+        xml += """<div class="scrolling-container">"""
+        for n in self.order:
+            xml += self.tracks[n].render_row(limit=30)
+        xml += """</div>"""
+        xml += """</div>"""
+        return xml
 
 
 def htmlize(tracks, spacing):
