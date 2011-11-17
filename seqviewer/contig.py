@@ -45,11 +45,13 @@ def mask_poor_bases(s, threshold=40):
     return new_seq
     
 
-def merge(s1, s2, min_segment_len=20, quality_threshold=40):
-    # s1 and s2 are SequenceWithConfidence objects containing the two 
-    # reads. The preconditions are:
-    #   * s1 is a noisy subsequence of some template sequence x,
-    #     and s2 is a noisy subsequence of revcomp(x).
+def merge(s1, conf1, s2, conf2, min_segment_len=20, quality_threshold=40):
+    # s1 and s2 are sequences containing the two reads. conf1 and
+    # conf2 are arrays containing the corresponding confidences.  The
+    # preconditions are:
+
+    #   * s1 is a noisy subsequence of some template sequence x, and
+    #     s2 is a noisy subsequence of revcomp(x).
     #   * s1 and s2 both consist of two low quality segments flanking
     #     a (possibly empty) high quality segment.
     #   * s1 and s2 are words over the alphabet AGCTN.
@@ -62,8 +64,10 @@ def merge(s1, s2, min_segment_len=20, quality_threshold=40):
     # sequence estimation fails.  If only one sequence has a long
     # enough high quality segment, we use its high quality segment and
     # ignore the other sequence entirely.
-    h1 = s1.high_quality_segment(threshold=quality_threshold)
-    h2 = s2.high_quality_segment(threshold=quality_threshold).revcomp()
+    seq1 = SequenceWithConfidence(s1, conf1)
+    seq2 = SequenceWithConfidence(s2, conf2)
+    h1 = seq1.high_quality_segment(threshold=quality_threshold)
+    h2 = seq2.high_quality_segment(threshold=quality_threshold).revcomp()
     if len(h1) < min_segment_len and len(h2) < min_segment_len:
         return None
     elif len(h1) < min_segment_len:
@@ -98,8 +102,8 @@ def merge(s1, s2, min_segment_len=20, quality_threshold=40):
     # so we have to reapply the confidences in order to proceed.
     assert(isinstance(alignment[0], str))
     assert(isinstance(alignment[1], str))
-    a1 = ab1.reapply_confidences(alignment[0], h1)
-    a2 = ab1.reapply_confidences(alignment[1], h2)
+    a1 = reapply_confidences(alignment[0], h1)
+    a2 = reapply_confidences(alignment[1], h2)
 
     # Finally we choose a base at each position by a two pass voting
     # algorithm.  In the first round, each sequence votes on whether
@@ -164,3 +168,68 @@ def merge(s1, s2, min_segment_len=20, quality_threshold=40):
         y += call
     return (y, a1.sequence, a2.sequence)
 
+class SequenceWithConfidence(object):
+    def __init__(self, sequence, confidences):
+        assert len(sequence) == len(confidences)
+        self.sequence = sequence
+        self.conf = confidences
+    def __len__(self):
+        return len(self.sequence)
+    def __getitem__(self, i):
+        return SequenceWithConfidence(self.sequence[i], [self.conf[i]])
+    def __getslice__(self, i, j):
+        return SequenceWithConfidence(self.sequence[i:j], self.conf[i:j])
+    def __str__(self):
+        return ' '.join(['%s/%s' % (b,c) for b,c in zip(self.sequence, self.conf)])
+    def __repr__(self):
+        return ' '.join(['%s/%s' % (b,c) for b,c in zip(self.sequence, self.conf)])
+    def __add__(self, other):
+        if isinstance(other, SequenceWithConfidence):
+            return SequenceWithConfidence(self.sequence + other.sequence,
+                                          self.conf + other.conf)
+        elif isinstance(other, basestring):
+            return self.sequence + other
+        else:
+            raise ValueError("Invalid thing to add to SequenceWithConfidence")
+    def reverse(self):
+        return SequenceWithConfidence(self.sequence[::-1], self.conf[::-1])
+    def complement(self):
+        new_seq = self.sequence. \
+            replace('A','t'). \
+            replace('T','a'). \
+            replace('C','g'). \
+            replace('G','c').upper()
+        return SequenceWithConfidence(new_seq, self.conf[::-1])
+    def revcomp(self):
+        return self.reverse().complement()
+    def high_quality_segment(self, threshold=40):
+        high_quality_positions = [i for i,x in enumerate(self.conf)
+                                  if x > threshold]
+        if len(high_quality_positions) < 10:
+            return SequenceWithConfidence('',[])
+        else:
+            high_quality_positions.reverse()
+            while True:
+                if len(high_quality_positions) < 10:
+                    return SequenceWithConfidence('',[])
+                start = high_quality_positions.pop()
+                if all([x > threshold for x in self.conf[start:(start+5)]]):
+                    break
+            high_quality_positions.reverse()
+            while True:
+                if len(high_quality_positions) < 10:
+                    return SequenceWithConfidence('',[])
+                end = high_quality_positions.pop()
+                if all([x > threshold for x in self.conf[(end-5):end]]):
+                    break
+            return self[start:end]
+
+def reapply_confidences(seq, oldseq):
+    old_conf = list(reversed(oldseq.conf)) # pop goes from the end in Python
+    new_conf = []
+    for c in seq:
+        if c == '-':
+            new_conf.append(None)
+        else:
+            new_conf.append(old_conf.pop())
+    return SequenceWithConfidence(seq, new_conf)
