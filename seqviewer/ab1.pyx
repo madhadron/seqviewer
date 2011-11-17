@@ -24,10 +24,6 @@ def packed_handle(fmt, *args):
     """
     return cStringIO.StringIO(struct.pack(fmt, *args))
 
-def test_packed_handle():
-    assert packed_handle('>i', 0).read() == '\0\0\0\0'
-    assert packed_handle('>B', ord('a')).read() == 'a'
-
 
 def parse_header(h):
     """Parse the header of an AB1 file.
@@ -45,7 +41,7 @@ def parse_header(h):
     version, = struct.unpack('>h', h.read(2))
     if math.floor(version/100) != 1:
         raise ValueError("AB1 file version is not supported by this "
-                         "library (found: %f, must be 1.xx)" % (version/100))
+                         "library (found: %f, must be 1.xx)" % (version/100.0))
     # Then comes a directory entry pointing to the offset containing
     # all the entries for this file.
     tdir = parse_direntry(h)
@@ -330,7 +326,10 @@ def reapply_confidences(seq, oldseq):
 class Ab1File(object):
     """Open an AB1 file for reading.
 
-    The ``Ab1File`` object imitates a read only dictionary by providing ``keys()`` and lookup with ``[]``.  The result is always a list of lists.  The inner lists contain the actual values, the outer lists are each instance of a key in the file, in order.
+    The ``Ab1File`` object imitates a read only dictionary by
+    providing ``keys()`` and lookup with ``[]``.  The result is always
+    a list of lists.  The inner lists contain the actual values, the
+    outer lists are each instance of a key in the file, in order.
 
     This class is thread safe *if* no other code uses the handle it
     uses.  Internally, all operations properly lock the handle before
@@ -386,24 +385,11 @@ class Ab1File(object):
                 finally:
                     self.lock.release()
         return data
-
-    def __iter__(self):
-        return self.entries.iteritems()
-
-    def iteritems(self):
-        for k in self.keys():
-            for v in self[k]:
-                yield (k,v)
-    def itervalues(self):
-        for k in self.keys():
-            for v in self[k]:
-                yield v
-    def iterkeys(self):
-        return self.entries.iterkeys()
-
-
     def bases(self):
-        return ''.join(chr(x) for x in self['PBAS'][0])
+        s = ''
+        for x in self['PBAS'][0]:
+            s += chr(x)
+        return s
     def base_centers(self):
         return self['PLOC'][0]
     def base_confidences(self):
@@ -425,7 +411,8 @@ class Ab1File(object):
         return self['RUNT'][0][0]
 
 def test_ab1file():
-    with open('scrapings/tmpClCBJg-1.ab1', 'rb') as h:
+    try:
+        h = open('scrapings/tmpClCBJg-1.ab1', 'rb')
         a = Ab1File(h)
         assert len(a) == 122
         assert a['Scan'] == [[13960]]
@@ -436,5 +423,6 @@ def test_ab1file():
         assert all([x > 0 and x < 100 for x in a.base_confidences()])
         assert isinstance(a.trace('A'), list)
         assert isinstance(a._raw_trace('A'), list)
-
+    finally:
+        h.close()
 
