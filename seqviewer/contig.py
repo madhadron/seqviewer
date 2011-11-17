@@ -46,9 +46,12 @@ def mask_poor_bases(s, threshold=40):
     
 
 def merge(s1, s2, min_segment_len=20, quality_threshold=40):
-    # s1 and s2 are SequenceWithConfidence objects containing the two reads.  The preconditions are:
-    #   * s1 is a noisy subsequence of some template sequence x, and s2 is a noisy subsequence of revcomp(x).
-    #   * s1 and s2 both consist of two low quality segments flanking a (possibly empty) high quality segment.
+    # s1 and s2 are SequenceWithConfidence objects containing the two 
+    # reads. The preconditions are:
+    #   * s1 is a noisy subsequence of some template sequence x,
+    #     and s2 is a noisy subsequence of revcomp(x).
+    #   * s1 and s2 both consist of two low quality segments flanking
+    #     a (possibly empty) high quality segment.
     #   * s1 and s2 are words over the alphabet AGCTN.
     #   * s1 and s2 may contain incorrect bases and indels.
 

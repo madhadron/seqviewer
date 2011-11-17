@@ -1,0 +1,41 @@
+* Web application interface
+Have a JavaScript based application that can fetch a list of JSON objects to populate it's list pane (including metadata) as a table, and then from links in that list can fetch data to fill its upper pane.  Add controls for the panes:
+# Print - print a version with the list panel and controls all hidden and only the data shown, but with wrapping turned on instead of scrolling
+# Hide - hide the list pane to get a full screen view of the data, except for the control bar at the bottom
+
+** DONE Create some test files of content and a JSON file listing the content, metadata, and links to it.  Put it all somewhere that it's accessible via HTTP.
+** DONE Write a minimally styled interface for the web app with appropriate divs to populate.
+** DONE Add fetching of JSON list to populate list pane; get list pane styling right
+** DONE Add fetching of content on clicks in list pane; get styling of content pane right
+** DONE Add hide/show control in middle bar
+** DONE Add print stylesheet without wrapping
+** DONE Prettify the interface a bit
+
+* Visualization function
+Want collapsible rows of a table, reorderable rows of a table.  Leave some hooks to be able to edit a base.
+** DONE Create a little bit of test data to pass to the visualizer
+*** DONE Get 2 ABI files and FASTA files of lab and my sequences
+*** DONE Import the ABI files, extract their bases, base centers, confidences, and traces
+*** DONE Calculate trace basins and stretch traces
+*** DONE Calculate spline control points for traces
+*** DONE Generate SVG of the trace of each base, using viewports to not have to calculate offsets
+*** TODO Paste together sequences, confidences, and SVG into a div
+
+
+
+* Database
+** TODO Install PostgreSQL somewhere
+** TODO Create basic schema with sample, sequences, and chromatograms tables.
+
+
+* Loading data
+inotify on a directory.  When a file is added to the directory, dispatch on the serial number at the beginning of the filename to add it to the database.  Add a few special dispatch rules for AB1 files (-1 and -2 to get forward and reverse strands; .fasta files become straight up sequences after being aligned as well as possible to what's already there)
+
+* Unified logging
+Want a single logging framework for the whole thing set up, viewable both on the commandline and from the web interface
+
+
+** TODO Add name of current entry to control bar in web interface
+** TODO Add sortable table jquery plugin to web interface's list pane
+** TODO Add stable hilighting of the currently selected entry in web interface
+** TODO Modify interface.js to take the list URL

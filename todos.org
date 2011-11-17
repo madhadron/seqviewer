@@ -1,0 +1,62 @@
+* DONE Go through Haskell daemonize library - what steps are missing from the following:
+# os.umask(0) # Set file creation mask
+# fork and exit
+# os.setsid() # Become a session/group leader
+# fork and exit
+# os.chdir(”/”) # So we don’t tie up a file system
+# 2.child Close all open file descriptors in a pinch, these are 0-1023
+# 2.child Open stdin, stdout and stderr to /dev/null use os.dup2() for this if you want.
+# Block sigHUP
+is the basic daemonize :: IO () -> IO ()
+
+serviced :: CreateDaemon a -> IO ()
+# Dropping setuid and setgid privileges
+# Connect to syslog
+# PID file handling: don’t start if the PID file already exists, otherwise write the PID line to the specified file, remove the PID file when program terminates
+# SysV start/stop/restart commands
+this is to be used to create a main.
+
+* DONE Write examples for myself of how to do each step in daemonization above
+Signal handling example:
+http://blog.copyninja.info/2010/07/creating-daemon-process-in-python.html
+* DONE Write a daemonize function which executes all the daemonization steps
+Use the Haskell daemonize function as an example of how this should work and what kind of data structures it should take.
+* DONE Write a serviced function and configuration class
+* DONE Add a setup.py to build daemonize
+* DONE Write an example daemon and a README file
+* DONE Push pydaemonize to PyPI
+* DONE Install https://github.com/seb-m/pyinotify and work through its documentation
+* DONE Write a generic inotify daemon
+It should call an initialization function to specify a state (and a lock on that state). Then it has a list of functions to call on each inotify event, calling them with that state as an argument. It locks the state before each call, and releases it after, so events will queue properly.
+* DONE Remove name and offset from Track objects
+And remove name handling stuff from TrackSet object
+* DONE Modify TrackSet to store an offset for each track as well as a name
+* DONE Make render_row accept an offset
+* TODO Modify contig.merge to produce just sequences plus offsets for them
+* TODO Make TrackSet take a pair of AB1 objects and make a contig
+Set up the contig as a reference sequence, and align the AB1 reads to it, setting their offsets.
+* TODO Add align_and_add method to TrackSet
+Aligns the given sequence (string or SeqRecord) to the reference sequence to get an offset, and then puts it in place.
+* TODO Add write_to_file method to TrackSet
+Pickles self
+* TODO Add support for gaps in ChromatogramTracks
+* TODO Do a few experiments to measure how inefficient pickling Track objects is
+How much larger than the raw array are they?
+* TODO Design database schema for storing TrackSet objects
+Columns for each track: position,name,offset,pickle
+* TODO Refactor ChomatogramTrack to precompute its rendering values
+Preserve the original data because I'll probably need it for other things. Move the utility functions into the class.
+* TODO Write a commandline program trackset to dispatch to subcommands
+Write subcommands init, add, render
+trackset init output.pickle first.ab1 second.ab1 [a.fasta b.fasta ...]
+Make a new pickle output.pickle by contiging first.ab1 and second.ab1, and adding any FASTA files specified.
+
+trackset add output.pickle a.fasta [b.fasta ...]
+Add additional FASTA files aligned to the reference in output.pickle
+
+trackset render output.pickle output.html
+Create output.html containing all the tracks in output.pickle nicely rendered, with CSS included so it's a standalone file.
+* TODO Compact CSS for track rendering and move it into code as a <style> block
+Try to simplify it as much as possible. It should be entirely standalone. Put unique prefixes in front of each element.
+* TODO Write a CherryPy program that takes a directory of pickled TrackSets, and pulls up the dynamic loader
+This is our first stage for validating stuff

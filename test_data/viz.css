@@ -8,6 +8,11 @@
     white-space: nowrap;
 }
 
+.trackset-rows {
+    display: table;
+}
+
+
 .label-column {
     float: left;
     max-width: 10em;
@@ -50,7 +55,8 @@
 }
 
 .trackset {
-    display: table;
+    width: 100%;
+    max-width: 100%;
 }
 
 div.track {
