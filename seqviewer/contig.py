@@ -34,6 +34,10 @@ for i in iupac.itervalues():
     iupac_table[('.',i)] = i
 iupac_table[tuple()] = 'N'
 
+def trim_dots(s):
+    d1, q, d2 = re.search(r'^(\.+)([^\.])(\.+)$', s).groups()
+    return (len(d1), q, len(d2))
+
 def mask_poor_bases(s, threshold=40):
     new_seq = ''
     for i in range(len(s)):
@@ -65,9 +69,9 @@ def merge(s1, conf1, s2, conf2, min_segment_len=20, quality_threshold=40):
     # enough high quality segment, we use its high quality segment and
     # ignore the other sequence entirely.
     seq1 = SequenceWithConfidence(s1, conf1)
-    seq2 = SequenceWithConfidence(s2, conf2)
-    h1 = seq1.high_quality_segment(threshold=quality_threshold)
-    h2 = seq2.high_quality_segment(threshold=quality_threshold).revcomp()
+    seq2 = SequenceWithConfidence(s2, conf2).revcomp()
+    h1, hq1left, hq1right = seq1.high_quality_segment(threshold=quality_threshold)
+    h2, hq2left, hq2right = seq2.high_quality_segment(threshold=quality_threshold)
     if len(h1) < min_segment_len and len(h2) < min_segment_len:
         return None
     elif len(h1) < min_segment_len:
@@ -97,7 +101,7 @@ def merge(s1, conf1, s2, conf2, min_segment_len=20, quality_threshold=40):
     # to keep each sequence clumped together.  This produces a1 and
     # a2, which are aligned, have the same length, and are words over
     # the alphabet ACGTN-.
-    alignment = Bio.pairwise2.align.localxs(h1.sequence, h2.sequence, -5, -10)[0]
+    alignment = Bio.pairwise2.align.localms(h1.sequence, h2.sequence, 1, -1, -5, -1)[0]
     # Bio.pairwise2 doesn't understand SequenceWithConfidence objects,
     # so we have to reapply the confidences in order to proceed.
     assert(isinstance(alignment[0], str))
@@ -125,20 +129,17 @@ def merge(s1, conf1, s2, conf2, min_segment_len=20, quality_threshold=40):
     # differently.  In this case, we replace the -'s at the beginning
     # and end with .'s, representing uncalled bases.  A dot does not
     # vote for skipping, but also does not vote for a base.
-    offset = len(re.split(r'[^-]', a1.sequence, maxsplit=1)[0])
-    if offset > 0:
-        a1.sequence = ''.join(['.' for i in range(offset)]) + a1.sequence[offset:]
-    offset = len(re.split(r'[^-]', a2.sequence, maxsplit=1)[0])
-    if offset > 0:
-        a2.sequence = ''.join(['.' for i in range(offset)]) + a2.sequence[offset:]
-    offset = len(re.split(r'[^-]', a1.sequence[::-1], maxsplit=1)[0])
-    if offset > 0:
-        a1.sequence = a1.sequence[:(-offset)] + ''.join(['.' for i in range(offset)])
-    offset = len(re.split(r'[^-]', a2.sequence[::-1], maxsplit=1)[0])
-    if offset > 0:
-        a2.sequence = a2.sequence[:(-offset)] + ''.join(['.' for i in range(offset)])
+    loffset1, match1, roffset1 = re.search(r'^(-*)([^-].+[^-])(-*)$', a1.sequence).groups()
+    loffset2, match2, roffset2 = re.search(r'^(-*)([^-].+[^-])(-*)$', a2.sequence).groups()
+    loffset1 = len(loffset1)
+    loffset2 = len(loffset2)
+    roffset1 = len(roffset1)
+    roffset2 = len(roffset2)
 
-    y = ''
+    a1.sequence = '.'*loffset1 + match1 + '.'*roffset1
+    a2.sequence = '.'*loffset2 + match2 + '.'*roffset2
+
+    consensus = ''
     accum = ''
     for i in range(len(a1)): # len(a1) == len(a2)
         base1 = a1.sequence[i]
@@ -153,7 +154,7 @@ def merge(s1, conf1, s2, conf2, min_segment_len=20, quality_threshold=40):
             continue
         else: # if not skipping, try to insert N's
             if len(accum) > 1:
-                y += accum
+                consensus += accum
             accum = ''
 
         # Voting round 2: base call
@@ -165,8 +166,15 @@ def merge(s1, conf1, s2, conf2, min_segment_len=20, quality_threshold=40):
         if base1 == base2 and conf1 + conf2 > quality_threshold:
             base_key.update([base1])
         call = iupac_table[as_key(base_key)]
-        y += call
-    return (y, a1.sequence, a2.sequence)
+        consensus += call
+    consensus_offset = max(hq1left - loffset1, hq2left - loffset2)
+    offset1 = consensus_offset - (hq1left-loffset1)
+    offset2 = consensus_offset - (hq2left -loffset2)
+    sequence1 = s1[:hq1left] + match1 + s1[hq1right:]
+    sequence2 = seq2.sequence[:hq2left] + match2 + seq2.sequence[hq2right:]
+    return ((consensus_offset, consensus),
+            (offset1, sequence1),
+            (offset2, sequence2))
 
 class SequenceWithConfidence(object):
     def __init__(self, sequence, confidences):
@@ -222,7 +230,7 @@ class SequenceWithConfidence(object):
                 end = high_quality_positions.pop()
                 if all([x > threshold for x in self.conf[(end-5):end]]):
                     break
-            return self[start:end]
+            return (self[start:end], start, end)
 
 def reapply_confidences(seq, oldseq):
     old_conf = list(reversed(oldseq.conf)) # pop goes from the end in Python

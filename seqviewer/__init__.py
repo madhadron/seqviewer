@@ -5,6 +5,7 @@ import contextlib
 
 import ab1
 import contig
+from xml import *
 
 def base_color(base):
     base_coloring = {'A': 'green', 'C': 'blue', 'T': 'red', 'G': 'black'}
@@ -19,9 +20,9 @@ class SequenceTrack(object):
         self.sequence = sequence
     def render_row(self, limit=None, offset=0):
         return div(classes=["track","sequence"],
-                   [div(classes="track-entry") for i in range(offset)] + \
+                   body=''.join([div(classes="track-entry") for i in range(offset)] + \
                        [self.render(i) for i 
-                        in range(limit == None and len(self) or min(len(self),limit))])
+                        in range(limit == None and len(self) or min(len(self),limit))]))
     def render(self, i):
         base = self.sequence[i]
         return """<div class="track-entry %d" style="color: %s">%s</div>""" % \
@@ -208,29 +209,6 @@ class ChromatogramTrack(object):
 def liftW(x):
     yield x
 
-def _ab1_to_tracks(a, revcomp=False):
-    bases = SequenceTrack(a.bases())
-    confidences = IntegerTrack(a.base_confidences())
-    chromatogram = ChromatogramTrack(A=a.trace('A'),
-                                     C=a.trace('C'),
-                                     T=a.trace('T'),
-                                     G=a.trace('G'),
-                                     centers=a.base_centers())
-    if revcomp:
-        return {'bases': bases.reverse_complement(),
-                'confidences': confidences.reverse_complement(),
-                'traces': chromatogram.reverse_complement()}
-    else:
-        return {'bases': bases,
-                'confidences': confidences,
-                'traces': chromatogram}
-
-def ab1_to_tracks(handle_or_filename):
-    with isinstance(handle_or_filename, basestring) and \
-            open(handle_or_filename, 'rb') or \
-            liftW(handle_or_filename) as handle:
-        a = ab1.Ab1File(handle)
-        return _ab1_to_tracks(a)
 
 
 class TrackSet(object):
@@ -282,38 +260,31 @@ class ContigDisplay(TrackSet):
         read1 = ab1.read_ab1(read1)
         read2 = ab1.read_ab1(read2)
 
-        contig_seq, a1_seq, a2_seq = contig.merge(a1.bases_with_confidence(),
-                                                  a2.bases_with_confidence())
-            # re.search(r'([^-\.]+)', a1_seq).groups(0)
-            
+        (contig_offset, contig_seq), (s1off, s1), (s2off, s2) = \
+            contig.merge(read1['bases'], read1['confidences'],
+                         read2['bases'], read2['confidences'])
 
-            a1_contig_offset = len(re.split(r'[^\.]', a1_seq, 1)[0])
-            a1_contig_end_no_gaps = a1_seq.strip('.').find('-')
-            a1_orig_offset = read1_tracks['bases'].sequence.find(a1_seq[a1_contig_offset:a1_contig_end_no_gaps])
-            a1_offset = a1_contig_offset - a1_orig_offset
-
-            a2_contig_offset = len(re.split(r'[^\.]', a2_seq, 1)[0])
-            a2_contig_end_no_gaps = a2_seq.strip('.').find('-')
-            a2_orig_offset = read1_tracks['bases'].sequence.find(a2_seq[a2_contig_offset:a2_contig_end_no_gaps])
-            a2_offset = a2_contig_offset - a2_orig_offset
-
-            self.add_track('Read 1 bases', read1_tracks['bases'], offset=a1_offset)
-            self.add_track('Read 1 confidences', read1_tracks['confidences'], 
-                           offset=a1_offset)
-            self.add_track('Read 1 trace', read1_tracks['traces'],
-                           offset=a1_offset)
-            self.add_track('Read 2 bases', read2_tracks['bases'],
-                           offset=a2_offset)
-            self.add_track('Read 2 confidences', read2_tracks['confidences'],
-                           offset=a2_offset)
-            self.add_track('Read 2 trace', read2_tracks['traces'],
-                           offset=a2_offset)
-
-            contig_offset = len(re.split(r'[^\.]', contig_seq, 1)[0])
-            self.contig_seq = contig_seq.strip('.')
-            
-
-            self.add_track('Contig', SequenceTrack(self.contig_seq), 
-                           offset=contig_offset, position=0)
+        self.add_track('Read 1 bases', SequenceTrack(s1), offset=s1off)
+        self.add_track('Read 1 confidences', IntegerTrack(read1['confidences']), 
+                       offset=s1off)
+        self.add_track('Read 1 trace', ChromatogramTrack(A=read1['traceA'],
+                                                         C=read1['traceC'],
+                                                         T=read1['traceT'],
+                                                         G=read1['traceG'],
+                                                         centers=read1['centers']),
+                       offset=s1off)
+        self.add_track('Read 2 bases', SequenceTrack(s2),
+                       offset=s2off)
+        self.add_track('Read 2 confidences', IntegerTrack(read2['confidences']),
+                       offset=s2off)
+        self.add_track('Read 2 trace', ChromatogramTrack(A=read2['traceA'],
+                                                         C=read2['traceC'],
+                                                         T=read2['traceT'],
+                                                         G=read2['traceG'],
+                                                         centers=read2['centers']),
+                       offset=s2off)
+        self.contig_seq = contig_seq
+        self.add_track('Contig', SequenceTrack(self.contig_seq), 
+                       offset=contig_offset, position=0)
         
 

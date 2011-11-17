@@ -1,18 +1,18 @@
 def tag(name):
-    def f(classes, *args):
+    def f(body="", classes=[]):
         if not(isinstance(classes, list)):
             classes = [classes]
         return ("""<%s class="%s">""" % (name, ' '.join(classes))) + \
-            ''.join(args) + \
+            body + \
             ("""</%s>""" % (name,))
     return f
 
 div = tag('div')
 span = tag('span')
 
-def unit_svg(*args):
+def unit_svg(body=""):
     return """<svg preserveAspectRatio="none" viewbox="0 -0.05 1 1.05" version="1.1">""" + \
-        ''.join(args) + """</svg>"""
+        body + """</svg>"""
 
 def M(x,y):
     return "M%f,%f" % (x,y)

@@ -126,7 +126,7 @@ def read_ab1(filename):
 
     val = {'centers': centers,
            'confidences': confidences,
-           'bases': [chr(x) for x in bases],
+           'bases': ''.join([chr(x) for x in bases]),
            'traceA': data[base_order['A']],
            'traceC': data[base_order['C']],
            'traceT': data[base_order['T']],

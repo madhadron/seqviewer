@@ -28,6 +28,7 @@
     vertical-align: middle;
     color: white;
     border-top: 1px solid #eee;
+    background-color: #111;
     background-image: url('concrete_wall.png');
     padding-right: 0.1em;
     padding-left: 0.2em;
@@ -64,8 +65,8 @@ div.track {
 }
 
 .track-entry {
-    padding-left: 0.6em;
-    padding-right: 0.6em;
+    padding-left: 0.3em;
+    padding-right: 0.3em;
     display: table-cell;
     text-align: center;
 }
