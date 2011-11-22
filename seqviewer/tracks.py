@@ -10,7 +10,7 @@ def base_color(base):
     except KeyError:
         return 'yellow'
 
-class Traces(list):
+class Traces(list, object):
     def __comp__(self):
         return Traces([{'A': d['T'], 'C': d['G'], 'T': d['A'], 'G': d['C']}
                        for d in self])
@@ -20,8 +20,8 @@ class Traces(list):
                  'C': rev_entry(d['C']),
                  'G': rev_entry(d['G'])}
                 for d in self[::-1]]
-    def __render__(self, offset=0):
-        entries = [div(classes=['track-entry','global'+str(i)], body='')
+    def __render__(self, offset=0, length=None):
+        entries = [div(classes=['track-entry','global'+str(i),'empty'], body='')
                    for i in range(offset)]
         for i in range(len(self)):
             entry = self[i]
@@ -35,6 +35,13 @@ class Traces(list):
                                         'local'+str(i)],
                                body=div(classes='svg-container',
                                         body=unit_svg(paths))))
+        if length != None and offset+len(self) < length:
+            N = len(self)
+            entries += [div(classes=['track-entry','global'+str(i+offset+N),
+                                     'empty'],
+                            body='')
+                        for i in range(length - offset - N)]
+
         return div(classes=['track','chromatogram'],
                    body=''.join(entries))
     gap = {'A': numpy.array([(0.5,0)]), 'C': numpy.array([(0.5,0)]),
@@ -130,7 +137,7 @@ def test_traces():
 
 
 
-class Sequence(str):
+class Sequence(str, object):
     def __comp__(self):
         return Sequence(self. \
                             replace('A','t'). \
@@ -139,14 +146,21 @@ class Sequence(str):
                             replace('G','c').upper())
     def __rev__(self):
         return Sequence(self[::-1])
-    def __render__(self, offset=0):
+    def __render__(self, offset=0, length=None):
         entries = \
-            [div(classes=['track-entry','global'+str(i)], body='')
+            [div(classes=['track-entry','global'+str(i),'empty'], body='')
              for i in range(offset)] + \
             [div(classes=['track-entry','global'+str(i+offset),'local'+str(i)],
                  style="color: %s" % base_color(self[i]),
                  body=self[i])
              for i in range(len(self))]
+        if length != None and offset+len(self) < length:
+            N = len(self)
+            entries += [div(classes=['track-entry','global'+str(i+offset+N),
+                                     'empty'],
+                            body='')
+                        for i in range(length - offset - N)]
+
         return div(classes=['track','sequence'],
                    body=''.join(entries))
     gap = '-'
@@ -156,18 +170,24 @@ class Sequence(str):
 def sequence(s):
     return Sequence(s)
 
-class Numeric(numpy.ndarray):
+class Numeric(numpy.ndarray, object):
     def __rev__(self):
         return self[::-1]
     def __comp__(self):
         return self
-    def __render__(self, offset=0):
+    def __render__(self, offset=0, length=None):
         entries = \
-            [div(classes=['track-entry', 'global'+str(i)],
+            [div(classes=['track-entry', 'global'+str(i), 'empty'],
                  body='') for i in range(offset)] + \
             [div(classes=['track-entry','global'+str(i+offset),'local'+str(i)],
                  body=str(self[i]))
              for i in range(len(self))]
+        if length != None and offset+len(self) < length:
+            N = len(self)
+            entries += [div(classes=['track-entry','global'+str(i+offset+N),
+                                     'empty'],
+                            body='')
+                        for i in range(length - offset - N)]
         return div(classes=['track','integer'],
                    body=''.join(entries))
     gap = numpy.NaN
@@ -181,7 +201,7 @@ def numeric(vals):
 
 TrackEntry = namedtuple('TrackEntry', ['name', 'offset', 'track'])
 
-class TrackSet(list):
+class TrackSet(list, object):
     def __rev__(self):
         new = TrackSet()
         for t in self:
@@ -195,7 +215,7 @@ class TrackSet(list):
     def __render__(self):
         labels = div(classes='label', body=span('Index'))
         for t in self:
-            if isinstance(t.track,Traces):
+            if isinstance(t.track, Traces):
                 labels += div(classes='chromatogram-label',
                               body=span(t.name))
             else:
@@ -206,7 +226,7 @@ class TrackSet(list):
                      body=''.join([div(classes=['track-entry'], body=str(i))
                                    for i in range(maxlen)]))
         for t in self:
-            tracks += render(t.track, offset=t.offset)
+            tracks += render(t.track, offset=t.offset, length=maxlen)
 
         return div(classes='trackset',
                    body=div(classes='label-column', body=labels) + \
@@ -331,6 +351,7 @@ stylesheet = """
 
 .chromatogram-label span {
     height: 6em !important;
+    vertical-align: middle;
     line-height: 6em;
 }
 
@@ -353,6 +374,16 @@ div.track {
 
 .track .track-entry:nth-of-type(odd) {
     background-color: #eee;
+}
+.track .track-entry:nth-of-type(even) {
+    background-color: #fff;
+}
+
+.track .empty:nth-of-type(odd) {
+    background-color: #ccc;
+}
+.track .empty:nth-of-type(even) {
+    background-color: #ddd;
 }
 
 .chromatogram > .track-entry {
