@@ -37,20 +37,21 @@ def fasta(seq1, seq2, ssearch36_path="ssearch36", tmpdir='/tmp'):
         pipe = subprocess.Popen(str(command), shell=True, 
                                 stdout=subprocess.PIPE)
         (alignment, _) = pipe.communicate()
-        return parse_fasta(alignment)
+        return parse_fasta(alignment, seq1, seq2)
 
-def offset_and_fill(s):
-    (spaces, fill) = re.match(r'^(\s*)([^\s]+)\s*$', s).groups()
-    offset = len(spaces)
-    return (offset, fill)
+def parse_hunk(h):
+    r = re.search(r'^(?:(?:\s+[0-9]+\s*)+\n\w{6} ( *)([A-Z-]+)\s*\n)?(?:[ :]+\n)?(?:\w{6} ( *)([A-Z-]+)\s*\n(?:\s+[0-9]+\s*)+)', h)
+    if r:
+        offset1, seq1, offset2, seq2 = r.groups()
+        if offset1 != None:
+            offset1 = len(offset1)
+        if offset2 != None:
+            offset2 = len(offset2)
+        return (offset1,seq1,offset2,seq2)
+    else:
+        return None
 
-def test_offset_and_fill():
-    assert offset_and_fill('ACTG') == (0, 'ACTG')
-    assert offset_and_fill('    ACTG') == (4, 'ACTG')
-    assert offset_and_fill('ACTG    ') == (0, 'ACTG')
-    assert offset_and_fill('    ACTG   ') == (4, 'ACTG')
-
-def parse_fasta(alignment):
+def parse_fasta(alignment, seg1, seg2):
     lines = alignment.split('\n')
     while True:
         if re.match(r'^>>', lines[0]):
@@ -62,16 +63,39 @@ def parse_fasta(alignment):
     alseq1, alseq2 = '', ''
     offset1, offset2 = 0, 0
     # Six line hunks: coords, seq1, match, seq2, coords, blank
-    while lines[0] != '':
-        hunk = lines[:6]
+    while True:
+        hunk = '\n'.join(lines[:6])
         lines = lines[6:]
-        maybeoffset1, seq1 = offset_and_fill(hunk[1][7:])
-        maybeoffset2, seq2 = offset_and_fill(hunk[3][7:])
-        if maybeoffset1 != 0:
+        x = parse_hunk(hunk)
+        if x == None:
+            break
+        maybeoffset1,seq1,maybeoffset2,seq2 = x
+        if maybeoffset1 != None and maybeoffset1 != 0:
             offset1 = maybeoffset1
-        if maybeoffset2 != 0:
+        if maybeoffset2 != None and maybeoffset2 != 0:
             offset2 = maybeoffset2
-        alseq1 += seq1
-        alseq2 += seq2
+        if seq1 != None:
+            alseq1 += seq1
+        if seq2 != None:
+            alseq2 += seq2
+    # ssearch36 doesn't return the whole sequence if it would mean a
+    # line of alignment with only one sequence on it.
+    ralseq1 = alseq1.replace('-','')
+    if len(ralseq1) < len(seg1):
+        i = seg1.find(ralseq1)
+        assert i > -1
+        alseq1 = seg1[:i] + alseq1 + seg1[i+len(ralseq1):]
+        offset1 -= len(ralseq1[:i])
+    ralseq2 = alseq2.replace('-','')
+    if len(ralseq2) < len(seg2):
+        i = seg2.find(ralseq2)
+        assert i > -1
+        alseq2 = seg2[:i] + alseq2 + seg2[i+len(ralseq2):]
+        offset2 -= len(seg2[:i])
+
+    if min(offset1,offset2) < 0:
+        offset1 -= min(offset1,offset2)
+        offset2 -= min(offset1,offset2)
+
     return ((offset1, alseq1), (offset2, alseq2))
         

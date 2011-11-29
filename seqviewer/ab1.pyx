@@ -1,5 +1,7 @@
 from libc.stdio cimport fopen, fclose, fseek, fread, FILE, SEEK_SET, ftell
 
+import tracks
+
 import numpy
 cimport numpy
 
@@ -31,7 +33,7 @@ cdef char fread_byte(FILE *p):
 cdef numpy.ndarray fread_byte_array_at(FILE *p, int N, int offset):
     cdef long return_to = ftell(p)
     fseek(p, offset, SEEK_SET)
-    cdef numpy.ndarray arr = numpy.zeros(N, dtype=numpy.byte)
+    cdef numpy.ndarray[numpy.int8_t, ndim=1] arr = numpy.zeros(N, dtype=numpy.byte)
     cdef int j
     for j in range(N):
         arr[j] = fread_byte(p)
@@ -41,7 +43,7 @@ cdef numpy.ndarray fread_byte_array_at(FILE *p, int N, int offset):
 cdef numpy.ndarray fread_short_array_at(FILE *p, int N, int offset):
     cdef long return_to = ftell(p)
     fseek(p, offset, SEEK_SET)
-    cdef numpy.ndarray arr = numpy.zeros(N, dtype=numpy.short)
+    cdef numpy.ndarray[numpy.int16_t, ndim=1] arr = numpy.zeros(N, dtype=numpy.short)
     cdef int j
     for j in range(N):
         arr[j] = fread_short(p)
@@ -60,7 +62,7 @@ cdef DirEntry fread_direntry(FILE *p):
     td.datahandle = ntohl(td.datahandle)
     return td
 
-def read_ab1(filename):
+def read(filename):
     tmp = filename.encode('UTF-8')
     cdef char* c_filename = tmp
     cdef FILE *p
@@ -93,7 +95,8 @@ def read_ab1(filename):
     cdef int i, j
     cdef char ctmp
     cdef long return_to
-    cdef numpy.ndarray bases, confidences, centers
+    cdef numpy.ndarray bases_array, confidences, centers
+    cdef str bases
     data = []
     cdef int c, q
     for i in range(td.numelements):
@@ -101,7 +104,8 @@ def read_ab1(filename):
         name = d.name[:4]
         if name == b'PBAS':
             if pbas_index == 1: # We want the second entry, the BaseCaller's entry
-                bases = fread_byte_array_at(p, d.numelements, d.dataoffset)
+                bases_array = fread_byte_array_at(p, d.numelements, d.dataoffset)
+                bases = ''.join(chr(x) for x in bases_array)
             pbas_index += 1
         if name == b'PCON':
             if pcon_index == 1:
@@ -124,11 +128,15 @@ def read_ab1(filename):
                 data.append(fread_short_array_at(p, d.numelements, d.dataoffset))
             data_index += 1
 
-    val = {'centers': centers,
-           'confidences': confidences,
-           'bases': ''.join([chr(x) for x in bases]),
-           'traceA': data[base_order['A']],
-           'traceC': data[base_order['C']],
-           'traceT': data[base_order['T']],
-           'traceG': data[base_order['G']]}
+    confidence_track = tracks.numeric(confidences)
+    sequence_track = tracks.sequence(bases)
+
+    traces_track = tracks.traces(A=data[base_order['A']],
+                                 C=data[base_order['C']],
+                                 T=data[base_order['T']],
+                                 G=data[base_order['G']],
+                                 centers=centers)
+    val = {'sequence': sequence_track,
+           'confidences': confidence_track,
+           'traces': traces_track}
     return val

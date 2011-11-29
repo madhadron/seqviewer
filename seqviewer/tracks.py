@@ -14,11 +14,11 @@ class Traces(list, object):
         return Traces([{'A': d['T'], 'C': d['G'], 'T': d['A'], 'G': d['C']}
                        for d in self])
     def __rev__(self):
-        return [{'A': rev_entry(d['A']), 
-                 'T': rev_entry(d['T']),
-                 'C': rev_entry(d['C']),
-                 'G': rev_entry(d['G'])}
-                for d in self[::-1]]
+        return Traces([{'A': rev_entry(d['A']), 
+                        'T': rev_entry(d['T']),
+                        'C': rev_entry(d['C']),
+                        'G': rev_entry(d['G'])}
+                       for d in self[::-1]])
     def __render__(self, offset=0, length=None):
         entries = [div(classes=['track-entry','global'+str(i),'empty'], body='')
                    for i in range(offset)]
@@ -98,7 +98,6 @@ def traces(A, C, T, G, centers):
     _limits = [int(numpy.ceil((centers[i]+centers[i-1])/2.0)) 
                for i in range(1, len(centers))]
     limits = zip([0] + _limits, [x+1 for x in _limits] + [len(A)])
-    print limits
     all_traces = numpy.concatenate([A,C,T,G])
     m = min(max(all_traces), cutoff(all_traces))
     t = Traces()
@@ -169,9 +168,9 @@ class Sequence(str, object):
 def sequence(s):
     return Sequence(s)
 
-class Numeric(numpy.ndarray, object):
+class Numeric(list, object):
     def __rev__(self):
-        return self[::-1]
+        return numeric(self[::-1])
     def __comp__(self):
         return self
     def __render__(self, offset=0, length=None):
@@ -189,28 +188,14 @@ class Numeric(numpy.ndarray, object):
                         for i in range(length - offset - N)]
         return div(classes=['track','integer'],
                    body=''.join(entries))
-    gap = numpy.NaN
-    def __isgap__(self, other):
-        numpy.isnan(other)
+    gap = None
 
 def numeric(vals):
-    a = Numeric(len(vals))
-    a[:] = numpy.array(vals)
-    return a
+    return Numeric(vals)
 
 TrackEntry = namedtuple('TrackEntry', ['name', 'offset', 'track'])
 
 class TrackSet(list, object):
-    def __rev__(self):
-        new = TrackSet()
-        for t in self:
-            pass # FIXME
-    def __comp__(self):
-        new = TrackSet()
-        for t in self:
-            new.append(TrackEntry(name=t.name, offset=t.offset,
-                                  track=comp(t.track)))
-        return new
     def __render__(self):
         labels = div(classes='label', body=span('Index'))
         for t in self:
@@ -244,13 +229,18 @@ def revcomp(s):
     return rev(comp(s))
 
 def render(s, *args, **kwargs):
+    assert isinstance(s, TrackSet) or isinstance(s, Sequence) or \
+        isinstance(s, Numeric) or isinstance(s, Traces)
     return s.__render__(*args, **kwargs)
 
 
 def regap(template, target):
     gaps = [i for i,t in enumerate(template)
-            if t == t.gap]
-    
+            if t == template.gap]
+    for i in gaps:
+        target.insert(i, target.gap)
+    return target
+
 
 
 ### XML
@@ -262,7 +252,7 @@ def tag(name):
                                                     ' '.join(classes),
                                                     style)) + \
             body + \
-            ("""</%s>""" % (name,))
+            ("""</%s>\n""" % (name,))
     return f
 
 div = tag('div')
@@ -270,7 +260,7 @@ span = tag('span')
 
 def unit_svg(body=""):
     return """<svg preserveAspectRatio="none" viewbox="0 -0.05 1 1.05" version="1.1">""" + \
-        body + """</svg>"""
+        body + """</svg>\n"""
 
 def M((x,y)):
     return "M%0.3f,%0.3f" % (x,y)
@@ -278,7 +268,7 @@ def M((x,y)):
 def L((x,y)):
     return "L%0.3f,%0.3f" % (x,y)
 
-def path(d, stroke="black", strokeWidth="0.01", fill="none"):
+def path(d, stroke="black", strokeWidth="0.03", fill="none"):
     dstr = ''.join(d)
     return """<path stroke="%s" stroke-width="%s" fill="%s" d="%s" />""" % \
         (stroke, strokeWidth, fill, dstr)
@@ -304,6 +294,7 @@ stylesheet = """
 .scrolling-container {
     overflow: scroll;
     white-space: nowrap;
+    position: relative;
 }
 
 .trackset-rows {
@@ -325,14 +316,14 @@ stylesheet = """
     font-family: Optima, Myriad, sans-serif;
     vertical-align: middle;
     color: white;
-    border-top: 1px solid #eee;
+    border-top: 0.01em solid #eee;
     background-color: #111;
     background-image: url('concrete_wall.png');
     padding-right: 0.1em;
     padding-left: 0.2em;
     padding-top: 0.2em;
     padding-bottom: 0.2em;
-    height: 0.6em;
+    height: 0.59em;
     text-align: right;
 }
 
@@ -357,6 +348,10 @@ stylesheet = """
 .trackset {
     width: 100%;
     max-width: 100%;
+}
+
+div.overlay {
+    position: absolute;
 }
 
 div.track {

@@ -2,6 +2,7 @@ import numpy
 import re
 import collections
 import fasta
+import tracks
 
 iupac = {('A','C'): 'M',
          ('A','G'): 'R',
@@ -51,11 +52,11 @@ def contig(seq1, conf1, seq2, conf2, threshold=40):
     elif m1 and not(m2):
         # Only sequence 1 is usable. Take its masked, acceptable part
         # as the reference.
-        return {'reference': (m1.start(), masked_seq1[m1.start():m1.end()]),
+        return {'reference': (m1.start(), tracks.sequence(masked_seq1[m1.start():m1.end()])),
                 'read1': (0, seq1), 'read2': (0, seq2)}
     elif m2 and not(m1):
         # Same as above, but only sequence 2 is usable.
-        return {'reference': (m2.start(), masked_seq2[m2.start():m2.end()]),
+        return {'reference': (m2.start(), tracks.sequence(masked_seq2[m2.start():m2.end()])),
                 'read1': (0, seq1), 'read2': (0, seq2)}
     else:
         # Both are usable. Align them.
@@ -67,18 +68,19 @@ def contig(seq1, conf1, seq2, conf2, threshold=40):
         segconf2 = conf2[l2:r2]
         (offset1, aligned1), (offset2, aligned2) = fasta.fasta(seg1, seg2)
 
-
-        left, right, offset, leftconf, rightconf = offset1 != 0 \
-            and (aligned2,aligned1,offset1,
+        if offset1 != 0:
+            left, right, leftconf, rightconf = \
+                (aligned2,aligned1,
                  dashify(segconf2,aligned2), 
-                 dashify(segconf1,aligned1)) \
-            or (aligned1,aligned2,offset2,
-                dashify(segconf1,aligned1),
-                dashify(segconf2,aligned2))
+                 dashify(segconf1,aligned1)) 
+        else:
+            left, right, leftconf, rightconf = \
+                (aligned1,aligned2,
+                 dashify(segconf1,aligned1),
+                 dashify(segconf2,aligned2))
 
-        read1 = seq1[:l1] + aligned1 + seq1[r1:]
-        read2 = seq2[:l2] + aligned2 + seq2[r2:]
-        
+        offset = max(offset1, offset2)
+
         left_end = min(len(left), len(right)+offset)
         right_end = min(len(right), len(left)-offset)
 
@@ -100,9 +102,15 @@ def contig(seq1, conf1, seq2, conf2, threshold=40):
 
         reference += right[right_end:] + left[left_end:] # One of these is ''
 
-        return {'reference': (max(l1,l2), reference),
-                'read1': (max(l1,l2)-l1, read1),
-                'read2': (max(l1,l2)-l2, read2)}
+        read1 = seq1[:l1] + aligned1 + seq1[r1:]
+        read2 = seq2[:l2] + aligned2 + seq2[r2:]
+
+        maxo = min(max(l1,l2)-(l1-offset1), max(l1,l2)-(l2-offset2))
+
+        v = {'reference': (max(l1,l2)-maxo, tracks.sequence(reference)),
+             'read1': (max(l1,l2)-(l1-offset1)-maxo, tracks.sequence(read1)),
+             'read2': (max(l1,l2)-(l2-offset2)-maxo, tracks.sequence(read2))}
+        return v
         
 
 def test_contig():
@@ -117,4 +125,3 @@ def test_contig():
                                    'read1': (9, s1),
                                    'read2': (0, s2)}
 
-test_contig()

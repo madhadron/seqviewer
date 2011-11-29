@@ -1,9 +1,0 @@
-{"columns": [{"name":"name", "width":"60%"},
-             {"name":"date", "width":"40%"}],
- "entries": [{"content_url": "http://localhost/~ross/web_interface/content1.xml",
-              "fields": {"name": "Content 1",
-                         "date": "June 13, 2009"}},
-             {"content_url": "http://localhost/~ross/web_interface/content2.xml",
-              "fields": {"name": "Content 2",
-                         "date": "June 24, 2011"}}]}
-

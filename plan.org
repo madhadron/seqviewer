@@ -1,0 +1,76 @@
+* Inputs
+Three ways of receiving input: on the command line, via a daemon monitoring a directory, or passed as argument within Python.
+
+Command line: inputs consist of two AB1 files and a set of auxiliary sequences in FASTA format.
+
+Daemon: inputs consist of files grouped by some kind of regular expression, ending up with one group equivalent to one set of command line files. They are added by monitoring a directory with inotify and adding files that are there.
+
+* Processing
+At the moment this consists of producing an aligned trackset from two AB1 files plus auxiliary sequences.  The two AB1 files are combined to produce a contig, then all sequences, both the called bases in the AB1 files and the auxiliary FASTA files, are aligned to that inferred sequence.  The whole is returned as a TrackSet object.
+
+This should be wrapped in logic like
+
+contig_as_trackset(first_ab1, second_ab1)
+
+then add sequences to the resulting trackset.
+
+** TODO Monitoring daemon
+Write as a higher order function. It takes a directory to monitor, a startup function to run (such as opening database connections), and a function to execute for each new file.
+
+Do this as a translation of my Haskell daemonize library.  Rough steps:
+1. Fork # Make new process 1
+1.parent. Exit
+1.child. Decouple from parent
+os.chdir(”/”) # So we don’t tie up a file system
+os.setsid() # Become a session/group leader
+os.umask(0) # Could be other things here as well — allow core’s and what not.
+1.child. Fork # Make new process 2
+2.parent. Exit
+2.child Close all open file descriptors in a pinch, these are 0-1023
+2.child Open stdin, stdout and stderr to /dev/null use os.dup2() for this if you want.
+2.child Congrats, you’re now a daemon.
+
+Other problems not dealt with:
+
+# Dropping setuid and setgid privileges
+# PID file handling: don’t start if the PID file already exists, otherwise write the PID line to the specified file, remove the PID file when program terminates
+# Signal handling: make sure cleanup is done in response to appropriate signals
+
+Optional extras usually present in well-behaved daemons:
+
+# Redirect stdout and stderr to syslog
+# Drop root privileges and switch to a specified user and group id
+# Operate within a chroot jail
+# Respawn on termination
+# Cooperate with operation under initd or inetd
+
+I’m rather disappointed that these widely-standardised daemon behaviours aren’t present in the Python standard library.
+
+* Storage
+The TrackSet object can either be pickled (for command line use) or stored in a PostgreSQL database.  For the moment omit the PostgreSQL database. The first version will just have a file of pickles that it writes to and an SQLite database to track them.
+
+For now, pickles.
+
+* Rendering
+Produce HTML files or bare XML to be returned upon request to the web client.
+
+Web interface must have a way of going directly to some entry from the URL (and put a permalink entry and title in the display pane)
+
+* Command line interface
+Two programs: mktrackset and trackset2html
+
+trackset init output.pickle first.ab1 second.ab1 [a.fasta b.fasta ...]
+Make a new pickle output.pickle by contiging first.ab1 and second.ab1, and adding any FASTA files specified.
+
+trackset add output.pickle a.fasta [b.fasta ...]
+Add additional FASTA files aligned to the reference in output.pickle
+
+trackset render output.pickle output.html
+Create output.html containing all the tracks in output.pickle nicely rendered, with CSS included so it's a standalone file.
+
+
+
+* Nongoals
+** Interactive changing of label panel size
+** Interactive reordering of tracks
+Though this could probably be done by making each track positioned individually and changing the offsets of each on dragging of labels.
