@@ -6,8 +6,8 @@ import Bio.SeqIO
 import cPickle
 
 ts = []
-for n in ['tmp_zrpuq']: #, 'tmpzSwR7u', 'tmpzsxOCM',
-    # 'tmpzubQwp', 'tmpzRpKiy', 'tmpzTyEvV', 'tmpzth38k']:
+for n in ['tmp_zrpuq', 'tmpzSwR7u', 'tmpzsxOCM',
+          'tmpzubQwp', 'tmpzRpKiy', 'tmpzTyEvV', 'tmpzth38k']:
     if os.path.exists('%s.pickle' % n):
         with open('%s.pickle' % n) as h:
             ts.append(cPickle.load(h))

@@ -102,14 +102,19 @@ def contig(seq1, conf1, seq2, conf2, threshold=40):
 
         reference += right[right_end:] + left[left_end:] # One of these is ''
 
-        read1 = seq1[:l1] + aligned1 + seq1[r1:]
-        read2 = seq2[:l2] + aligned2 + seq2[r2:]
+        template1 = tracks.sequence(seq1[:l1] + aligned1 + seq1[r1:])
+        template2 = tracks.sequence(seq2[:l2] + aligned2 + seq2[r2:])
+        
+        read1 = tracks.regap(template1, tracks.sequence(seq1))
+        read2 = tracks.regap(template2, tracks.sequence(seq2))
+        assert len(read1) == len(template1)
+        assert len(read2) == len(template2)
 
         maxo = min(max(l1,l2)-(l1-offset1), max(l1,l2)-(l2-offset2))
 
         v = {'reference': (max(l1,l2)-maxo, tracks.sequence(reference)),
-             'read1': (max(l1,l2)-(l1-offset1)-maxo, tracks.sequence(read1)),
-             'read2': (max(l1,l2)-(l2-offset2)-maxo, tracks.sequence(read2))}
+             'read1': (max(l1,l2)-(l1-offset1)-maxo, read1),
+             'read2': (max(l1,l2)-(l2-offset2)-maxo, read2)}
         return v
         
 

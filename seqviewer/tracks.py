@@ -164,6 +164,8 @@ class Sequence(str, object):
     gap = '-'
     def __isgap__(self, other):
         return other == '-' or other == '.'
+    def insert(self, pos, item):
+        return Sequence(self[:pos] + item + self[pos:])
 
 def sequence(s):
     return Sequence(s)
@@ -235,11 +237,14 @@ def render(s, *args, **kwargs):
 
 
 def regap(template, target):
+    result = target
     gaps = [i for i,t in enumerate(template)
             if t == template.gap]
     for i in gaps:
-        target.insert(i, target.gap)
-    return target
+        a = result.insert(i, result.gap)
+        if a != None:
+            result = a
+    return result
 
 
 
