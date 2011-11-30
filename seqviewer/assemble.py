@@ -8,8 +8,7 @@ def assemble(read1, read2, *extra_seqs):
     tracks2 = ab1.read(read2)
     ref = contig.contig(tracks1['sequence'], tracks1['confidences'],
                         tracks.revcomp(tracks2['sequence']), 
-                        tracks.revcomp(tracks2['confidences']),
-                        threshold=20)
+                        tracks.revcomp(tracks2['confidences']))
     t = tracks.TrackSet()
 
     read1_offset, read1_sequence = ref['read1']

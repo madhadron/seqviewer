@@ -40,13 +40,63 @@ def dashify(target,template):
         target.insert(i, 0)
     return target
 
+def find_steps(bs):
+    ups = []
+    downs = []
+    for i in range(len(bs)-1):
+        if bs[i] and not(bs[i+1]):
+            downs.append(i)
+        elif not(bs[i]) and bs[i+1]:
+            ups.append(i+1)
+        else:
+            pass
+    return (ups,downs)
 
-def contig(seq1, conf1, seq2, conf2, threshold=40):
-    masked_seq1 = ''.join([c > threshold and s or 'N' for s,c in zip(seq1,conf1)])
-    masked_seq2 = ''.join([c > threshold and s or 'N' for s,c in zip(seq2,conf2)])
+def canny_mask(vals, high_threshold=40, low_threshold=10):
+    mask = [c >= high_threshold for c in vals]
+    N = len(vals)
+    ups, downs = find_steps(mask)
+    for i in ups:
+        assert i > 0 and i < N
+        j = i-1
+        while j >= 0:
+            if vals[j] >= low_threshold:
+                mask[j] = True
+                j -= 1
+            else:
+                break
+    for i in downs:
+        assert i >= 0 and i < N-1
+        j = i+1
+        while j < N:
+            if vals[j] >= low_threshold:
+                mask[j] = True
+                j += 1
+            else:
+                break
+    return mask
+
+def test_canny_mask():
+    assert canny_mask([]) == []
+    assert canny_mask([50]) == [True]
+    assert canny_mask([20]) == [False]
+    assert canny_mask([50,20]) == [True,True]
+    assert canny_mask([20,50]) == [True,True]
+    assert canny_mask([50,5]) == [True,False]
+    assert canny_mask([5,50]) == [False,True]
+    assert canny_mask([5,15,50]) == [False,True,True]
+    assert canny_mask([50,15,5]) == [True,True,False]
+    assert canny_mask([50,15,15,50,15,15,5]) == [True]*6 + [False]
+    
+
+def contig(seq1, conf1, seq2, conf2, high_threshold=40, low_threshold=10, call_threshold=20):
+    mask1 = canny_mask(conf1, high_threshold, low_threshold)
+    mask2 = canny_mask(conf2, high_threshold, low_threshold)
+    masked_seq1 = ''.join([m and c or 'N' for m,c in zip(mask1,seq1)])
+    masked_seq2 = ''.join([m and c or 'N' for m,c in zip(mask2,seq2)])
     r = r'(?=[^N]{10,})(?:[^N]|N(?=.*[^N]{10,}))+'
-    m1 = re.search(r, masked_seq1)
-    m2 = re.search(r, masked_seq2)
+    m1 = re.search(r, ''.join([m>high_threshold and c or 'N' for m,c in zip(conf1,seq1)]))
+    m2 = re.search(r, ''.join([m>high_threshold and c or 'N' for m,c in zip(conf2,seq2)]))
     if not(m1) and not(m2): # Neither sequence is usable.
         return {'reference': None, 'read1': (0, seq1), 'read2': (0, seq2)}
     elif m1 and not(m2):
@@ -90,7 +140,7 @@ def contig(seq1, conf1, seq2, conf2, threshold=40):
             d = collections.defaultdict(lambda: 0)
             d[b1] += c1
             d[b2] += c2
-            key = tuple(sorted(k for k,v in d.iteritems() if v > threshold))
+            key = tuple(sorted(k for k,v in d.iteritems() if v > call_threshold))
             return iupac_table[key]
 
         # Use left, right, and the resulting confs instead
