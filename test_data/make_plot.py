@@ -8,6 +8,7 @@ import cPickle
 ts = []
 for n in ['tmp_zrpuq', 'tmpzSwR7u', 'tmpzsxOCM',
           'tmpzubQwp', 'tmpzRpKiy', 'tmpzTyEvV', 'tmpzth38k']:
+#for n in ['tmp_zrpuq']:
     if os.path.exists('%s.pickle' % n):
         with open('%s.pickle' % n) as h:
             ts.append(cPickle.load(h))
@@ -18,7 +19,7 @@ for n in ['tmp_zrpuq', 'tmpzSwR7u', 'tmpzsxOCM',
                                                    'fasta').seq.tostring()))]
         else:
             extra_seqs = []
-        ts.append(assemble('%s-1.ab1' % n, '%s-2.ab1' % n, *extra_seqs))
+        ts.append((n, assemble('%s-1.ab1' % n, '%s-2.ab1' % n, *extra_seqs)))
         with open('%s.pickle' % n, 'wb') as h:
             cPickle.dump(ts[-1], h)
         

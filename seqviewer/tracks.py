@@ -3,13 +3,14 @@ from collections import namedtuple
 
 def base_color(base):
     base_coloring = {'A': 'green', 'C': 'blue', 'T': 'red', 
-                     'G': 'black', 'U': 'red'}
+                     'G': 'black', 'U': 'red', 'X': 'black'}
     try:
         return base_coloring[base]
     except KeyError:
         return 'yellow'
 
 class Traces(list, object):
+    css_class = 'Traces'
     def __comp__(self):
         return Traces([{'A': d['T'], 'C': d['G'], 'T': d['A'], 'G': d['C']}
                        for d in self])
@@ -19,30 +20,16 @@ class Traces(list, object):
                         'C': rev_entry(d['C']),
                         'G': rev_entry(d['G'])}
                        for d in self[::-1]])
-    def __render__(self, offset=0, length=None):
-        entries = [div(classes=['track-entry','global'+str(i),'empty'], body='')
-                   for i in range(offset)]
-        for i in range(len(self)):
-            entry = self[i]
-            paths = ''
-            for b in 'ACTG':
-                paths += path(M(entry[b][0]) + \
-                                  ''.join([L(x) for x in entry[b][1:]]),
-                              stroke=base_color(b))
-            entries.append(div(classes=['track-entry',
-                                        'global'+str(i+offset),
-                                        'local'+str(i)],
-                               body=div(classes='svg-container',
-                                        body=unit_svg(paths))))
-        if length != None and offset+len(self) < length:
-            N = len(self)
-            entries += [div(classes=['track-entry','global'+str(i+offset+N),
-                                     'empty'],
-                            body='')
-                        for i in range(length - offset - N)]
-
-        return div(classes=['track','chromatogram'],
-                   body=''.join(entries))
+    def __render__(self, pos):
+        entry = self[pos]
+        paths = ''
+        for b in 'ACTG':
+            paths += path(M(entry[b][0]) + \
+                              ''.join([L(x) for x in entry[b][1:]]),
+                          stroke=base_color(b))
+        return div(classes=['track-entry','Traces'],
+                   body=div(classes='svg-container',
+                            body=unit_svg(paths)))
     gap = {'A': numpy.array([(0.5,0)]), 'C': numpy.array([(0.5,0)]),
            'T': numpy.array([(0.5,0)]), 'G': numpy.array([(0.5,0)])}
 
@@ -99,7 +86,9 @@ def traces(A, C, T, G, centers):
                for i in range(1, len(centers))]
     limits = zip([0] + _limits, [x+1 for x in _limits] + [len(A)])
     all_traces = numpy.concatenate([A,C,T,G])
-    m = min(max(all_traces), cutoff(all_traces))
+    maxima = [max(numpy.concatenate([A[i:j],C[i:j],T[i:j],G[i:j]]))
+              for i,j in limits]
+    m = min(2*numpy.median(maxima), max(maxima))
     t = Traces()
     for l,r in limits:
         xs = numpy.arange(0,r-l) / float(r-l-1)
@@ -136,6 +125,7 @@ def test_traces():
 
 
 class Sequence(str, object):
+    css_class = 'Sequence'
     def __comp__(self):
         return Sequence(self. \
                             replace('A','t'). \
@@ -144,23 +134,10 @@ class Sequence(str, object):
                             replace('G','c').upper())
     def __rev__(self):
         return Sequence(self[::-1])
-    def __render__(self, offset=0, length=None):
-        entries = \
-            [div(classes=['track-entry','global'+str(i),'empty'], body='')
-             for i in range(offset)] + \
-            [div(classes=['track-entry','global'+str(i+offset),'local'+str(i)],
-                 style="color: %s" % base_color(self[i]),
-                 body=self[i])
-             for i in range(len(self))]
-        if length != None and offset+len(self) < length:
-            N = len(self)
-            entries += [div(classes=['track-entry','global'+str(i+offset+N),
-                                     'empty'],
-                            body='')
-                        for i in range(length - offset - N)]
-
-        return div(classes=['track','sequence'],
-                   body=''.join(entries))
+    def __render__(self, pos):
+        return div(classes=['track-entry','Sequence'],
+                   style="color: %s" % base_color(self[pos]),
+                   body=self[pos])
     gap = '-'
     def __isgap__(self, other):
         return other == '-' or other == '.'
@@ -171,25 +148,14 @@ def sequence(s):
     return Sequence(s)
 
 class Numeric(list, object):
+    css_class = 'Numeric'
     def __rev__(self):
         return numeric(self[::-1])
     def __comp__(self):
         return self
-    def __render__(self, offset=0, length=None):
-        entries = \
-            [div(classes=['track-entry', 'global'+str(i), 'empty'],
-                 body='') for i in range(offset)] + \
-            [div(classes=['track-entry','global'+str(i+offset),'local'+str(i)],
-                 body=str(self[i]))
-             for i in range(len(self))]
-        if length != None and offset+len(self) < length:
-            N = len(self)
-            entries += [div(classes=['track-entry','global'+str(i+offset+N),
-                                     'empty'],
-                            body='')
-                        for i in range(length - offset - N)]
-        return div(classes=['track','integer'],
-                   body=''.join(entries))
+    def __render__(self, pos):
+        return div(classes=['track-entry','Numeric'],
+                   body=str(self[pos]))
     gap = None
 
 def numeric(vals):
@@ -199,7 +165,7 @@ TrackEntry = namedtuple('TrackEntry', ['name', 'offset', 'track'])
 
 class TrackSet(list, object):
     def __render__(self):
-        labels = div(classes='label', body=span('Index'))
+        labels = div(classes='label', body=span('Position'))
         for t in self:
             if isinstance(t.track, Traces):
                 labels += div(classes='chromatogram-label',
@@ -208,17 +174,26 @@ class TrackSet(list, object):
                 labels += div(classes='label',
                               body=span(t.name))
         maxlen = max([len(x.track)+x.offset for x in self])
-        tracks = div(classes=['track','integer'],
-                     body=''.join([div(classes=['track-entry'], body=str(i))
-                                   for i in range(maxlen)]))
-        for t in self:
-            tracks += render(t.track, offset=t.offset, length=maxlen)
+        tracks = ""
+        for i in range(len(self)):
+            colbody = div(classes=['track-entry','integer'], body=str(i))
+            for t in self:
+                L = len(t.track)
+                c = t.track.css_class
+                if i < t.offset:
+                    colbody += div(classes=['track-entry','empty',c])
+                elif i < t.offset + L:
+                    colbody += render(t.track, pos=i-t.offset)
+                else:
+                    colbody += div(classes=['track-entry','empty',c])
+            tracks += div(classes=['track-column'], body=colbody)
 
         return div(classes='trackset',
                    body=div(classes='label-column', body=labels) + \
                        div(classes='scrolling-container',
-                           body=div(classes='trackset-rows',
-                                    body=tracks)))
+                           body=tracks))
+    def __len__(self):
+        return max([len(t.track)+t.offset for t in self])
 
 
 def rev(s):
@@ -257,7 +232,7 @@ def tag(name):
                                                     ' '.join(classes),
                                                     style)) + \
             body + \
-            ("""</%s>\n""" % (name,))
+            ("""</%s>""" % (name,))
     return f
 
 div = tag('div')
@@ -265,7 +240,7 @@ span = tag('span')
 
 def unit_svg(body=""):
     return """<svg preserveAspectRatio="none" viewbox="0 -0.05 1 1.05" version="1.1">""" + \
-        body + """</svg>\n"""
+        body + """</svg>"""
 
 def M((x,y)):
     return "M%0.3f,%0.3f" % (x,y)
@@ -284,8 +259,8 @@ def standalone(tracksets):
     xml = """<html><head>\n"""
     xml += """<style>\n""" + stylesheet + "</style>\n"
     xml += """</head><body>"""
-    for t in tracksets:
-        xml += render(t)
+    for title,t in tracksets:
+        xml += ("<h1>%s</h1>\n" % title) + render(t)
     xml += """</body></html>"""
     return xml
 
@@ -296,16 +271,13 @@ stylesheet = """
     padding: 0;
 }
 
+@media print { * { font-size: 10pt; } }
+
 .scrolling-container {
-    overflow: scroll;
-    white-space: nowrap;
     position: relative;
 }
 
-.trackset-rows {
-    display: table;
-}
-
+@media screen { .scrolling-container { overflow: scroll; white-space: nowrap; } }
 
 .label-column {
     float: left;
@@ -355,19 +327,24 @@ stylesheet = """
     max-width: 100%;
 }
 
-div.overlay {
-    position: absolute;
+.track-column {
+    display: inline-block;
+    width: 1.3em;
+    vertical-align: top;
 }
 
-div.track {
-    display: table-row;
-}
+@media print { .track-column {     
+                   padding-bottom: 0.5em;
+                   border-bottom: 0.1em double #000;
+                   margin-bottom: 0.5em; }}
+
 
 .track-entry {
+    display: block;
     padding-left: 0.3em;
     padding-right: 0.3em;
-    display: table-cell;
     text-align: center;
+    height: 1.1em;
 }
 
 
@@ -385,8 +362,8 @@ div.track {
     background-color: #ddd;
 }
 
-.chromatogram > .track-entry {
-    height: 4em;
+.Traces {
+    height: 4em !important;
     padding: 0;
 }
 
@@ -410,4 +387,5 @@ div.track {
     white-space: wrap;
     overflow: wrap;
 }
+
 """
