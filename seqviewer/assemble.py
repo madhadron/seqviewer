@@ -38,6 +38,20 @@ def assemble(read1, read2, *extra_seqs):
                                        tracks.sequence(saligned)))
         else:
             t.append(tracks.TrackEntry(name, 0, s))
+
+    # Now add an assembly of the lab sequence and reference sequence
+    if len(extra_seqs) == 1 and ref['reference'] != None:
+        labtrack = t[-1]
+        reftrack = t[-2]
+        offset = max(labtrack.offset, reftrack.offset)
+        loffset = offset - labtrack.offset
+        roffset = offset - reftrack.offset
+        assert loffset >= 0 and roffset >= 0 and (loffset == 0 or roffset == 0)
+        bases = tracks.sequence(''.join([a == b and ' ' or 'X' for a,b in
+                                         zip(labtrack.track[loffset:], 
+                                             reftrack.track[roffset:])]))
+        if 'X' in bases:
+            t.append(tracks.TrackEntry('mismatches', offset, bases))
     return t
 
 # def test_assemble():
