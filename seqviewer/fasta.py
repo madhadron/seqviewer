@@ -37,10 +37,14 @@ def fasta(seq1, seq2, ssearch36_path="ssearch36", tmpdir='/tmp'):
         pipe = subprocess.Popen(str(command), shell=True, 
                                 stdout=subprocess.PIPE)
         (alignment, _) = pipe.communicate()
-        return parse_fasta(alignment, seq1, seq2)
+        res = parse_fasta(alignment, seq1, seq2)
+        assert len(seq1) == len(res[0][1])
+        assert len(seq2) == len(res[1][1])
+        return res
 
 
-def parse_fasta(alignment, seg1, seg2):
+
+def parse_fasta(alignment, origseq1, origseq2):
     lines = alignment.split('\n')
     l = lines.index('>sequen ..') + 1
     c = lines[l:].index('>sequen ..') + l
@@ -54,6 +58,24 @@ def parse_fasta(alignment, seg1, seg2):
     seq2 = ''.join(lines[l2:r2])
     spaces2, bases2 = re.match(r'( *)([A-Z-]+)', seq2).groups()
     offset2 = len(spaces2)
+
+    ungapped1 = bases1.replace('-','')
+    if len(ungapped1) < len(origseq1):
+        i = origseq1.find(ungapped1)
+        assert i > -1
+        bases1 = origseq1[:i] + bases1 + origseq1[i+len(ungapped1):]
+        offset1 -= len(ungapped1[:i])
+
+    ungapped2 = bases2.replace('-','')
+    if len(ungapped2) < len(origseq2):
+        i = origseq2.find(ungapped2)
+        assert i > -1
+        bases2 = origseq2[:i] + bases2 + origseq2[i+len(ungapped2):]
+        offset2 -= len(origseq2[:i])
+
+    if min(offset1,offset2) < 0:
+        offset1 -= min(offset1,offset2)
+        offset2 -= min(offset1,offset2)
 
     return ((offset1, bases1), (offset2, bases2))
         
