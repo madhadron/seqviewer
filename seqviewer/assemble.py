@@ -52,7 +52,7 @@ def assemble(read1, read2, *extra_seqs):
                                              reftrack.track[roffset:])]))
         if 'X' in bases:
             t.append(tracks.TrackEntry('mismatches', offset, bases))
-    return t
+    return (t, ref['strands'])
 
 # def test_assemble():
 #     import Bio.SeqIO

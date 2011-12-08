@@ -98,16 +98,18 @@ def contig(seq1, conf1, seq2, conf2, high_threshold=40, low_threshold=10, call_t
     m1 = re.search(r, ''.join([m>high_threshold and c or 'N' for m,c in zip(conf1,seq1)]))
     m2 = re.search(r, ''.join([m>high_threshold and c or 'N' for m,c in zip(conf2,seq2)]))
     if not(m1) and not(m2): # Neither sequence is usable.
-        return {'reference': None, 'read1': (0, seq1), 'read2': (0, seq2)}
+        return {'reference': None, 'read1': (0, seq1), 'read2': (0, seq2), 'strands': 'none'}
     elif m1 and not(m2):
         # Only sequence 1 is usable. Take its masked, acceptable part
         # as the reference.
         return {'reference': (m1.start(), tracks.sequence(masked_seq1[m1.start():m1.end()])),
-                'read1': (0, seq1), 'read2': (0, seq2)}
+                'read1': (0, seq1), 'read2': (0, seq2),
+                'strands': 'strand 1'}
     elif m2 and not(m1):
         # Same as above, but only sequence 2 is usable.
         return {'reference': (m2.start(), tracks.sequence(masked_seq2[m2.start():m2.end()])),
-                'read1': (0, seq1), 'read2': (0, seq2)}
+                'read1': (0, seq1), 'read2': (0, seq2),
+                'strands': 'strand 2'}
     else:
         # Both are usable. Align them.
         l1, r1 = m1.start(), m1.end()
@@ -159,7 +161,8 @@ def contig(seq1, conf1, seq2, conf2, high_threshold=40, low_threshold=10, call_t
 
         v = {'reference': (max(l1,l2)-maxo, tracks.sequence(reference)),
              'read1': (max(l1,l2)-(l1-offset1)-maxo, read1),
-             'read2': (max(l1,l2)-(l2-offset2)-maxo, read2)}
+             'read2': (max(l1,l2)-(l2-offset2)-maxo, read2),
+             'strands': 'both'}
         return v
         
 
